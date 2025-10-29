@@ -26,7 +26,10 @@ from google_cloud_pipeline_components.types import artifact_types
 
 # Pipeline Configuration
 PIPELINE_NAME = "diabetes-classification-exercise-pipeline"
+
+# Set base image and path to requirements.txt
 BASE_IMAGE = "python:3.9"
+REQUIREMENTS_PATH = "src/requirements.txt"
 
 # Pre-built BigQuery component (already completed for you)
 bigquery_query_job_op = components.load_component_from_url(
@@ -34,6 +37,86 @@ bigquery_query_job_op = components.load_component_from_url(
     'bigquery-query-job/sha256:'
     'd1cae80bc0de4e5b95b994739c8d0d7d42ce5a4cb17d3c9512eaed14540f6343'
 )
+
+# =============================================================================
+# YOUR CODING Exam:
+# =============================================================================
+# HINT: The original function signature was:
+# def train_model(reg_rate, X_train, X_test, y_train, y_test):
+
+# Model training component
+@component(
+    base_image=BASE_IMAGE,
+    packages_to_install=[
+        "google-cloud-bigquery",
+        "scikit-learn",
+        "joblib",
+        "pandas"
+    ]
+)
+def train_model_op(
+    train_data: Input[artifact_types.BQTable],
+    output_model: Output[Model],
+    metrics: Output[Metrics],
+    reg_rate: float,
+    project_id: str,
+    bq_location: str
+) -> float:
+
+    """
+    Train logistic regression model using BigQuery training data.
+    """
+
+    import re, os, shutil, joblib, logging
+    import pandas as pd
+    from sklearn.linear_model import LogisticRegression
+    from google.cloud import bigquery
+
+    logging.basicConfig(level=logging.INFO)
+    logging.info("[CONVERSION] Starting model training component")
+
+    # Extract project id, BQ dataset, and table from train_data uri
+    uri = train_data.uri
+    logging.info("[CONVERSION] Parsing BQ URI: %s", uri)
+    match = re.search(r'projects/([^/]+)/datasets/([^/]+)/tables/([^/]+)', uri)
+    if not match:
+        raise ValueError(f"Could not parse BQ table from URI: {uri}")
+    proj, dataset, table = match.groups()
+    table_ref = f"{proj}.{dataset}.{table}"
+
+    # load training data from BigQuery
+    bq_client = bigquery.Client(project=project_id, location=bq_location)
+    query = f"SELECT * FROM `{table_ref}`"
+    train_df = bq_client.query(query).to_dataframe()
+    logging.info("[CONVERSION] Loaded %d training rows from BigQuery", len(train_df))
+
+    # Split training data into features and target
+    FEATURE_COLUMNS = ["Pregnancies","PlasmaGlucose","DiastolicBloodPressure",
+                       "TricepsThickness","SerumInsulin","BMI","DiabetesPedigree","Age"]
+    X = train_df[FEATURE_COLUMNS]
+    y = train_df["Diabetic"]
+
+    # Train a logistic regression model with regularization
+    model = LogisticRegression(C=1 / reg_rate, solver="liblinear")
+    model.fit(X, y)
+
+    # Calculate training accuracy
+    training_accuracy = model.score(X, y)
+    logging.info("[CONVERSION] Training accuracy: %.4f", training_accuracy)
+
+    # Save trained model
+    model_path = os.path.join(os.path.dirname(output_model.path), "model.joblib")
+    joblib.dump(model, model_path)
+    shutil.copy(model_path, output_model.path)
+
+    # Log metrics for tracking and monitoring
+    metrics.log_metric("training_accuracy", training_accuracy)
+    metrics.log_metric("regularization_rate", reg_rate)
+    metrics.log_metric("training_samples", len(train_df))
+
+    logging.info("[CONVERSION] Model stored at %s", output_model.path)
+    return training_accuracy
+
 
 # Evaluation component (already completed for you)
 @component(
@@ -85,19 +168,6 @@ def evaluate_model_op(
     metrics.log_metric("test_samples", len(test_df))
     
     return accuracy
-
-# =============================================================================
-# YOUR CODING Exam:
-# =============================================================================
-# HINT: The original function signature was:
-# def train_model(reg_rate, X_train, X_test, y_train, y_test):
-
-# YOUR CODE HERE - Replace this comment block with your component:
-
-
-
-
-
 
 
 # Model approval components (already completed for you)
@@ -189,7 +259,6 @@ def diabetes_training_pipeline(
     )
     
     # TODO: Uncomment and complete the train_task once you implement train_model_op
-    """
     train_task = train_model_op(
         train_data=bq_train_task.outputs["destination_table"],
         reg_rate=reg_rate,
@@ -197,10 +266,8 @@ def diabetes_training_pipeline(
         bq_location=region
     ).set_cpu_limit("1").set_memory_limit("3840Mi")
     train_task.after(bq_train_task)
-    """
-    
+
     # TODO: Uncomment the evaluation task once train_task is implemented
-    """
     eval_task = evaluate_model_op(
         test_data=bq_test_task.outputs["destination_table"],
         model=train_task.outputs["output_model"],
@@ -232,9 +299,8 @@ def diabetes_training_pipeline(
             min_accuracy=min_accuracy
         )
         rejected_task.after(eval_task)
-    """
 
 # =============================================================================
 # (optional - for advanced users)
 # =============================================================================
-if __name__ == "__main__":
+# if __name__ == "__main__":
