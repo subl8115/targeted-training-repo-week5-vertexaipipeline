@@ -94,11 +94,45 @@ def evaluate_model_op(
 
 # YOUR CODE HERE - Replace this comment block with your component:
 
-def train_model_op(
-    train_data: Input[artifact_types.BQTable],
-    #TODO: Review the train_to_vertex_ai_conversion.py for answers
+@component(                                                      # TODO: Lab 5.8.1.2a - WHERE: @component decorator replaces def
+    base_image=BASE_IMAGE,                                       # TODO: Lab 5.8.1.2b - WHAT: Container execution vs local Python
+    packages_to_install=[                                        # TODO: Lab 5.8.1.2c - WHERE: Explicit dependencies vs local imports
+        "google-cloud-bigquery",                                 # TODO: Lab 5.8.1.2d - WHAT: Cloud data access vs pandas
+        "scikit-learn",                                          # TODO: Lab 5.8.1.2e - WHERE: Same sklearn but containerized
+        "joblib",                                                # TODO: Lab 5.8.1.2f - WHAT: Model serialization for artifacts
+        "pandas"                                                 # TODO: Lab 5.8.1.2g - WHERE: DataFrame operations still needed
+    ]
 )
+def train_model_op(                                              # TODO: Lab 5.8.1.2h - WHERE: Component function signature
+    train_data: Input[artifact_types.BQTable],                   # TODO: Lab 5.8.1.2i - WHAT: BQTable artifact vs X_train DataFrame
+    output_model: Output[Model],                                 # TODO: Lab 5.8.1.2j - WHAT: Output[Model] vs return statement
+    metrics: Output[Metrics],                                    # TODO: Lab 5.8.1.2k - WHAT: Structured metrics vs print()
+    reg_rate: float,                                             # TODO: Lab 5.8.1.2l - WHERE: Same parameter, different data flow
+    project_id: str,                                             # TODO: Lab 5.8.1.2m - WHAT: Cloud context vs local execution
+    bq_location: str                                             # TODO: Lab 5.8.1.2n - WHAT: Regional data access parameter
+) -> float:                                                      # TODO: Lab 5.8.1.2o - WHERE: Return type for pipeline decisions
+    """
+    Train logistic regression model using BigQuery training data.
+    Converted from train_model function in original train.py.
+    
+    Args:
+        train_data: BigQuery table containing training data
+        output_model: Output model artifact for pipeline consumption
+        metrics: Training metrics for monitoring and evaluation
+        reg_rate: Regularization rate (inverse of C parameter)
+        project_id: Google Cloud project ID
+        bq_location: BigQuery location/region
+        
+    Returns:
+        float: Training accuracy for pipeline decision making
+    """
+    import re, os, shutil, joblib, logging
+    import pandas as pd
+    from sklearn.linear_model import LogisticRegression
+    from google.cloud import bigquery
 
+    logging.basicConfig(level=logging.INFO)
+    logging.info("[CONVERSION] Starting model training component")
 
 
 
