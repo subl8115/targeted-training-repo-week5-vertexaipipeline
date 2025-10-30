@@ -91,7 +91,7 @@ def evaluate_model_op(
 # =============================================================================
 # HINT: The original function signature was:
 # def train_model(reg_rate, X_train, X_test, y_train, y_test):
-
+# TODO: David Review Complete
 @component(  # TODO: Lab 5.8.1.2a - WHERE: @component decorator replaces def
     base_image=BASE_IMAGE,  # TODO: Lab 5.8.1.2b - WHAT: Container execution vs local Python
     packages_to_install=[  # TODO: Lab 5.8.1.2c - WHERE: Explicit dependencies vs local imports
